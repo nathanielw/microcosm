@@ -1,41 +1,33 @@
 import { Database } from '../src/microfiche'
 
 function seed(changes) {
-  changes.merge('author', 0, {
-    id: 0,
-    name: 'Billy Booster',
-    email: 'billy@booster.com'
-  })
-
-  changes.merge('author', 1, {
-    id: 1,
-    name: 'Sally Forth',
-    email: 'sally@forth.com'
-  })
-
-  changes.merge('post', 0, {
-    id: 0,
-    title: 'Blockchain analysis',
-    content: 'Block chains are cool.',
-    author: 0
-  })
-
-  changes.merge('post', 1, {
-    id: 1,
-    title: 'Fun with JavaScript',
-    content: 'JavaScript. JavaScript. JavaScript.',
-    author: 1
-  })
-
-  changes.merge('post', 2, {
-    id: 2,
-    title: 'Elixir for Rubyists',
-    content: 'Elixir is not Ruby.',
-    author: 1
-  })
+  changes.putMany([
+    ['author', 0, 'id', 0],
+    ['author', 0, 'name', 'Billy Booster'],
+    ['author', 0, 'email', 'billy@booster.com'],
+    //
+    ['author', 1, 'id', 1],
+    ['author', 1, 'name', 'Sally Forth'],
+    ['author', 1, 'email', 'sally@forth.com'],
+    //
+    ['post', 0, 'id', 0],
+    ['post', 0, 'title', 'Blockchain analysis'],
+    ['post', 0, 'content', 'Block chains are cool.'],
+    ['post', 0, 'author', 0],
+    //
+    ['post', 1, 'id', 1],
+    ['post', 1, 'title', 'Fun with JavaScript'],
+    ['post', 1, 'content', 'JavaScript. JavaScript. JavaScript.'],
+    ['post', 1, 'author', 1],
+    //
+    ['post', 2, 'id', 2],
+    ['post', 2, 'title', 'Elixir for Rubyists'],
+    ['post', 2, 'content', 'Elixir is not Ruby.'],
+    ['post', 2, 'author', 1]
+  ])
 }
 
-describe('QueryLog', function() {
+describe('Microfiche', function() {
   beforeEach(() => {
     this.DB = new Database()
 
@@ -89,17 +81,13 @@ describe('QueryLog', function() {
       changes.put('author', 1, 'name', 'Sharill Forth')
     })
 
-    expect(this.DB.head.parent).not.toBe(null)
-
     this.DB.compress()
-
-    expect(this.DB.head.parent).toBe(null)
 
     let sharill = this.DB.get('author', 1, ['name'])
 
-    expect(sharill).toHaveProperty('name', 'Sharill Forth')
+    this.DB.rollback()
 
-    expect(this.DB.head.parent).toBe(null)
+    expect(sharill).toBe(null)
   })
 
   it('can enumerate over records', () => {
@@ -116,5 +104,13 @@ describe('QueryLog', function() {
       name: 'Billy Booster',
       email: 'billy@booster.com'
     })
+  })
+
+  it('can remove records', () => {
+    this.DB.transact(changeset => {
+      changeset.remove('author.0')
+    })
+
+    expect(this.DB.get('author', '0', ['id', 'name', 'email'])).toEqual(null)
   })
 })
