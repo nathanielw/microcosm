@@ -15,6 +15,7 @@ import installDevtools from './install-devtools'
 import { RESET, PATCH } from './lifecycle'
 import { merge, update } from './utils'
 import { version } from '../package.json'
+import { Database } from '../../microfiche/src/microfiche'
 
 /**
  * Options passed into Microcosm always extend from this object. You
@@ -121,6 +122,8 @@ class Microcosm extends Emitter {
       this._enableDomains()
       this._enableEffects()
     }
+
+    this.database = new Database()
 
     // A history is done reconciling and is ready for a release
     this.history.on('release', this._release, this)
@@ -427,22 +430,15 @@ class Microcosm extends Emitter {
   }
 
   _updateSnapshot(action: Action) {
-    let snap = this._ensureSnapshot(action)
-    let last = this._rebase(action)
-    let next = last
+    this.database.transact(changes => {
+      this.domains.getHandlers(action).forEach(handler => {
+        handler.steps.forEach(step => {
+          step.call(handler.scope, changes, action.payload)
+        })
+      })
+    })
 
-    if (!action.disabled) {
-      next = this.domains.dispatch(action, last, snap)
-    }
-
-    this.snapshots[action.id] = {
-      next: next,
-      last: last,
-      status: action.status,
-      payload: action.payload
-    }
-
-    return snap.next !== next
+    return false
   }
 
   _updateSnapshotRange(source: Action, end: Action) {

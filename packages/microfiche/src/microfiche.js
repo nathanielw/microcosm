@@ -1,16 +1,20 @@
-function assign(a, b) {
-  for (var key in a) {
-    if (a[key] !== undefined) {
-      b[key] = a[key]
+function flatten(object) {
+  let next = {}
+
+  for (var key in object) {
+    if (object[key] !== undefined) {
+      next[key] = object[key]
     }
   }
 
-  return a
+  return next
 }
+
+const noop = () => {}
 
 export class Database {
   constructor() {
-    this.head = new Changeset({})
+    this.head = new Changeset({}, noop)
   }
 
   get() {
@@ -21,16 +25,18 @@ export class Database {
     return this.head.each.apply(this.head, arguments)
   }
 
-  rollback() {
-    this.head = this.head.rollback()
+  push(action, callback) {
+    let observable = action()
+    let next = this.head.spawn(callback)
+
+    observable.subscribe(payload => next.apply(payload))
+
+    this.head = next
   }
 
-  transact(fn) {
-    let draft = this.head.spawn()
-
-    fn(draft)
-
-    this.head = draft
+  transact(fn, payload) {
+    this.head = this.head.spawn(fn)
+    this.head.apply(payload)
   }
 
   compress() {
@@ -39,33 +45,47 @@ export class Database {
 }
 
 export class Changeset {
-  constructor(last) {
+  constructor(last, executor) {
     this.last = last
+    this.next = null
     this.facts = Object.create(last)
+    this.executor = executor
   }
 
   compress() {
-    return new Changeset(assign({}, this.facts))
+    return new Changeset(flatten(this.facts), noop)
+  }
+
+  spawn(fn) {
+    this.next = new Changeset(this.facts, fn)
+
+    return this.next
   }
 
   rollback() {
-    return new Changeset(this.last)
-  }
-
-  spawn() {
-    return new Changeset(this.facts)
-  }
-
-  put(resource, entity, attribute, value) {
-    let key = resource + '.' + entity + '.' + attribute
-
-    if (this.facts[key] !== value) {
-      this.facts[key] = value
+    for (var key in this.facts) {
+      if (this.facts.hasOwnProperty(key)) {
+        delete this.facts[key]
+      }
     }
   }
 
-  putMany(items) {
-    items.forEach(items => this.put(...items), this)
+  apply() {
+    this.rollback()
+
+    this.executor(this, ...arguments)
+
+    if (this.next) {
+      this.next.apply(...arguments)
+    }
+  }
+
+  put(key, value) {
+    let next = typeof value === 'function' ? value(this.facts[key]) : value
+
+    if (this.facts[key] !== next) {
+      this.facts[key] = next
+    }
   }
 
   remove(search) {

@@ -20,7 +20,9 @@ describe('Microcosm::push', function() {
       },
       register() {
         return {
-          [step]: (count, n) => count + n
+          [step](changes) {
+            changes.put('count', count => count + n)
+          }
         }
       }
     })

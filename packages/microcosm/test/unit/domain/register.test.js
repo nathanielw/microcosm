@@ -3,24 +3,24 @@ import Microcosm from 'microcosm'
 let action = a => a
 
 describe('Domain::register', function() {
-  it('sends actions in the context of the domain', function() {
-    expect.assertions(1)
-
+  it.only('sends actions in the context of the domain', function() {
     let repo = new Microcosm()
 
-    repo.addDomain('test', {
+    repo.addDomain('users', {
       test: true,
 
       register() {
         return {
-          [action]() {
-            expect(this.test).toBe(true)
+          [action](changes) {
+            changes.put('users', 1, 'name', 'billy')
           }
         }
       }
     })
 
     repo.push(action)
+
+    expect(repo.database.get('users', 1, ['name'])).toEqual({ name: 'billy' })
   })
 
   it('returns the same state if a handler is not provided', function() {
