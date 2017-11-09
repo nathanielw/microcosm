@@ -12,7 +12,7 @@ describe('Domain::register', function() {
       register() {
         return {
           [action](changes) {
-            changes.put('users', 1, 'name', 'billy')
+            changes.put('users.1.name', 'billy')
           }
         }
       }

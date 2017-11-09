@@ -13,7 +13,7 @@ import EffectEngine from './effect-engine'
 import tag from './tag'
 import installDevtools from './install-devtools'
 import { RESET, PATCH } from './lifecycle'
-import { merge, update } from './utils'
+import { set, merge, update } from './utils'
 import { version } from '../package.json'
 import { Database } from '../../microfiche/src/microfiche'
 
@@ -136,10 +136,6 @@ class Microcosm extends Emitter {
     }
   }
 
-  get state(): Object {
-    return this._recall(this.history.head)
-  }
-
   /**
    * ### `setup(options)`
    *
@@ -251,12 +247,6 @@ class Microcosm extends Emitter {
    * provided options and associated repo.
    */
   addDomain(key: string, config: *, options?: Object) {
-    if (key in this.state) {
-      throw new Error(
-        `Can not add domain for "${key}". This state is already managed.`
-      )
-    }
-
     this._enableDomains()
 
     let domain = this.domains.add(key, config, options)
@@ -407,94 +397,13 @@ class Microcosm extends Emitter {
   }
 
   _release() {
-    if (this._didChange()) {
-      this._emit('change', this.state)
-    }
+    this._emit('change')
   }
 
-  _ensureSnapshot(action: Action): Snapshot {
-    if (this.snapshots.hasOwnProperty(action.id)) {
-      return this.snapshots[action.id]
-    }
-
-    let snapshot: Snapshot = {
-      last: this._recall(action.parent),
-      next: this._recall(action),
-      status: 'inactive',
-      payload: undefined
-    }
-
-    this.snapshots[action.id] = snapshot
-
-    return snapshot
-  }
-
-  _updateSnapshot(action: Action) {
-    this.database.transact(changes => {
-      this.domains.getHandlers(action).forEach(handler => {
-        handler.steps.forEach(step => {
-          step.call(handler.scope, changes, action.payload)
-        })
-      })
+  _link(action) {
+    this.database.link(action.toObservable(), changes => {
+      this.domains.dispatch(changes, action)
     })
-
-    return false
-  }
-
-  _updateSnapshotRange(source: Action, end: Action) {
-    let focus = source
-    while (focus) {
-      var changed = this._updateSnapshot(focus)
-
-      if (changed === false || focus === end) {
-        break
-      }
-
-      focus = focus.next
-    }
-  }
-
-  _removeSnapshot(action: Action) {
-    delete this.snapshots[action.id]
-  }
-
-  _didChange(): boolean {
-    let key = this.history.head.id
-
-    if (key in this.snapshots) {
-      let snap = this.snapshots[key]
-
-      return snap.last !== snap.next
-    }
-
-    return false
-  }
-
-  _recall(action: ?Action): Object {
-    let focus = action
-    while (focus) {
-      if (focus.id in this.snapshots) {
-        return this.snapshots[focus.id].next
-      }
-
-      focus = focus.parent
-    }
-
-    return this.getInitialState()
-  }
-
-  /**
-   * Get the state prior to a given action, but include any upstream
-   * updates from parent Microcosms.
-   */
-  _rebase(action: Action): Object {
-    let state = this._recall(action.parent)
-
-    if (this.parent) {
-      state = merge(state, this.parent._recall(action))
-    }
-
-    return state
   }
 
   _alias(actions: ?Object) {
@@ -510,11 +419,7 @@ class Microcosm extends Emitter {
 
     this.domains = new DomainEngine(this)
 
-    // When an action snapshot range needs updating
-    this.history.on('change', this._updateSnapshotRange, this)
-
-    // When an action snapshot should be removed
-    this.history.on('remove', this._removeSnapshot, this)
+    this.history.on('append', this._link, this)
   }
 
   _enableEffects() {
@@ -525,6 +430,16 @@ class Microcosm extends Emitter {
     this.effects = new EffectEngine(this)
 
     this.history.on('change', this._dispatchEffect, this)
+  }
+
+  get state() {
+    let data = {}
+
+    this.database.each((path, value) => {
+      data = set(data, path, value)
+    })
+
+    return data
   }
 }
 

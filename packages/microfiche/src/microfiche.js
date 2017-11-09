@@ -26,7 +26,10 @@ export class Database {
   }
 
   push(action, callback) {
-    let observable = action()
+    this.link(action(), callback)
+  }
+
+  link(observable, callback) {
     let next = this.head.spawn(callback)
 
     observable.subscribe(payload => next.apply(payload))

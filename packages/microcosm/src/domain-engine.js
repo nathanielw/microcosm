@@ -125,41 +125,20 @@ class DomainEngine {
     return domain
   }
 
-  dispatch(action: Action, state: Object, snapshot: Snapshot) {
+  dispatch(changes, action: Action) {
     let handlers = this.register(action)
-    let answer = state
 
     for (var i = 0; i < handlers.length; i++) {
-      var { local, key, scope, steps } = handlers[i]
+      var { local, scope, steps } = handlers[i]
 
       if (local && action.origin !== this.repo) {
         continue
       }
 
-      var last = answer[key]
-      var head = snapshot.last[key]
-      var next = snapshot.next[key]
-
-      if (
-        // If the reference to the prior state changed
-        last !== head ||
-        // Or the payload is different
-        action.payload !== snapshot.payload ||
-        // or the status is different
-        action.status !== snapshot.status
-      ) {
-        // Recalculate state from the last answer
-        next = reduce(steps, action.payload, last, scope)
+      for (var s = 0, len = steps.length; s < len; s++) {
+        steps[s].call(scope, changes, action.payload)
       }
-
-      if (answer === state && next !== answer[key]) {
-        answer = clone(state)
-      }
-
-      answer[key] = next
     }
-
-    return answer
   }
 
   deserialize(data: Object): Object {

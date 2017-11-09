@@ -4,6 +4,7 @@
  * @flow
  */
 
+import Observable from 'zen-observable'
 import coroutine from './coroutine'
 import Emitter, { type Callback } from './emitter'
 import tag from './tag'
@@ -350,6 +351,14 @@ class Action extends Emitter {
       revisions: this.revisions,
       next: this.next && this.next.id
     }
+  }
+
+  toObservable() {
+    return new Observable(observer => {
+      let update = revision => observer.next(revision)
+
+      this.onNext(update)
+    })
   }
 }
 

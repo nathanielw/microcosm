@@ -2,5 +2,7 @@
   "name": "microfich",
   "private": true,
   "version": "0.0.0",
-  "dependencies": {}
+  "dependencies": {
+    "graphql-tag": "^2.5.0"
+  }
 }
