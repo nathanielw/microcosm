@@ -2,8 +2,6 @@ import assert from 'assert'
 import { errors, nameOf } from './strings'
 import { merge } from 'microcosm'
 
-let uid = 0
-
 function useDefault(key, property) {
   if ('default' in property) {
     return property.default

@@ -1,5 +1,5 @@
 import { Entity, Collection } from 'micromanage'
-import { values, filter } from 'lodash'
+import { values } from 'lodash'
 
 export class Planet extends Entity {
   static schema = {
