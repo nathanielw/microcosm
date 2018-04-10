@@ -50,7 +50,10 @@ export function update(
  * value is the same, don't do anything. Otherwise return a new object.
  */
 export function set(object: Object, key: *, value: *): any {
-  console.assert(key != null, `Expected key to be defined. Instead got ${key}`)
+  console.assert(
+    key != null,
+    `Expected key to be defined. Instead got ${key.toString()}`
+  )
 
   // Ensure we're working with a key path, like: ['a', 'b', 'c']
   let path = castPath(key)
